@@ -1,6 +1,6 @@
 import json
 import os
-
+import time
 from google import genai
 
 
@@ -42,13 +42,23 @@ def summarize_event(event, leads):
 
     client = genai.Client(api_key=api_key)
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=[
-            SYSTEM_PROMPT,
-            json.dumps(payload),
-        ],
-    )
+     # Retry temporary Gemini failures such as 503 UNAVAILABLE.
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=[
+                    SYSTEM_PROMPT,
+                    json.dumps(payload),
+                ],
+            )
+            break
+
+        except Exception:
+            if attempt == 2:
+                raise
+
+            time.sleep(2)
 
     data = _parse_json(response.text)
     summaries = {
