@@ -93,7 +93,11 @@ export default function EventPage() {
     setError("");
     try {
       const result = await api.summarizeEvent(eventId);
-      setNotice(result.used_ai ? "" : "No API key found, so this is a basic summary. Add ANTHROPIC_API_KEY to the backend for AI summaries.");
+      setNotice(
+          result.used_ai
+            ? ""
+            : "AI service is temporarily unavailable, so basic summaries are being shown."
+        );
       setShowSummary(true);
       await refresh();
     } catch (err) {

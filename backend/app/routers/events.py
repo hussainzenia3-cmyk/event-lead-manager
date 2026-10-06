@@ -91,25 +91,30 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{event_id}/summarize", response_model=SummaryOut)
+@router.post("/{event_id}/summarize", response_model=SummaryOut)
 def summarize_event(event_id: int, db: Session = Depends(get_db)):
     event = get_event_or_404(db, event_id)
 
-    # nothing to summarise for people without notes
-    leads = [lead for lead in event.leads if lead.notes.strip()]
+    # Only people with notes can be summarized.
+    leads = [lead for lead in event.leads if lead.notes and lead.notes.strip()]
+
     if not leads:
-        raise HTTPException(status_code=400, detail="Add interaction notes for at least one person first.")
+        raise HTTPException(
+            status_code=400,
+            detail="Add interaction notes for at least one person first."
+        )
 
-    try:
-        result = ai.summarize_event(event, leads)
-    except Exception:
-        logger.exception("AI summary failed")
-        raise HTTPException(status_code=502, detail="The AI service failed. Please try again in a moment.")
+    # The AI layer handles each person separately.
+    # If Gemini is temporarily unavailable, it returns a basic
+    # summary instead of making the whole API request fail.
+    result = ai.summarize_event(event, leads)
 
-    # keep the original notes, store the summary next to them
+    # Keep the original notes and store the generated/fallback
     for lead in leads:
         summary = result["summaries"].get(lead.id)
         if summary:
             lead.ai_summary = summary
+
     event.ai_overview = result["overview"]
     db.commit()
 
